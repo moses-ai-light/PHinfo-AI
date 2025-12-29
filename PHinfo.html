@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI TechLens Pro | Smartphone Detector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0a0a0c; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .shutter-btn { background: radial-gradient(circle, #3b82f6 0%, #1d4ed8 100%); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .shutter-btn:active { transform: scale(0.9) rotate(5deg); }
+        .scan-anim { height: 2px; background: linear-gradient(90deg, transparent, #3b82f6, transparent); width: 100%; position: absolute; top: 0; animation: scanMove 2s infinite linear; }
+        @keyframes scanMove { 0% { top: 0; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="text-slate-200 antialiased overflow-x-hidden">
+
+    <div class="max-w-md mx-auto min-h-screen flex flex-col p-4 relative">
+        
+        <header class="flex justify-between items-center py-4 mb-2">
+            <div>
+                <h1 class="text-2xl font-extrabold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-500">
+                    TechLens <span class="text-white">PRO</span>
+                </h1>
+                <p class="text-[10px] text-slate-500 uppercase tracking-widest font-semibold italic">Powered by Gemini 1.5 Flash</p>
+            </div>
+            <div class="w-10 h-10 rounded-full glass flex items-center justify-center">
+                <i data-lucide="cpu" class="w-5 h-5 text-blue-400"></i>
+            </div>
+        </header>
+
+        <main class="relative flex-1 rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-black group">
+            <video id="camera-stream" class="w-full h-full object-cover" autoplay playsinline></video>
+            
+            <div id="scan-line" class="scan-anim hidden"></div>
+            
+            <div class="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-blue-500 opacity-50"></div>
+            <div class="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-blue-500 opacity-50"></div>
+            <div class="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-blue-500 opacity-50"></div>
+            <div class="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-blue-500 opacity-50"></div>
+
+            <div class="absolute bottom-8 left-0 right-0 flex justify-center">
+                <button id="scan-trigger" onclick="analyzePhone()" class="shutter-btn w-20 h-20 rounded-full flex items-center justify-center border-4 border-white/20 shadow-blue-500/50 shadow-2xl">
+                    <i data-lucide="aperture" class="w-10 h-10 text-white"></i>
+                </button>
+            </div>
+        </main>
+
+        <div id="results-card" class="hidden fixed inset-x-4 bottom-6 z-50 glass rounded-[2.5rem] p-6 fade-in shadow-2xl border-t border-white/20">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h2 id="phone-brand" class="text-3xl font-extrabold text-white leading-tight">iPhone 15 Pro</h2>
+                    <span id="price-tag" class="text-blue-400 font-semibold text-sm">Est. Rp 15.000.000</span>
+                </div>
+                <button onclick="closeResult()" class="text-slate-500"><i data-lucide="x-circle"></i></button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="flex items-center gap-3 bg-white/5 p-3 rounded-2xl">
+                    <div class="text-blue-400"><i data-lucide="layers" class="w-5 h-5"></i></div>
+                    <div><p class="text-[10px] text-slate-500 uppercase">Chipset</p><p id="spec-chip" class="text-xs font-bold font-mono">A17 Pro</p></div>
+                </div>
+                <div class="flex items-center gap-3 bg-white/5 p-3 rounded-2xl">
+                    <div class="text-blue-400"><i data-lucide="battery-charging" class="w-5 h-5"></i></div>
+                    <div><p class="text-[10px] text-slate-500 uppercase">Battery</p><p id="spec-bat" class="text-xs font-bold font-mono">4441 mAh</p></div>
+                </div>
+                <div class="flex items-center gap-3 bg-white/5 p-3 rounded-2xl">
+                    <div class="text-blue-400"><i data-lucide="zap" class="w-5 h-5"></i></div>
+                    <div><p class="text-[10px] text-slate-500 uppercase">RAM</p><p id="spec-ram" class="text-xs font-bold font-mono">8GB</p></div>
+                </div>
+                <div class="flex items-center gap-3 bg-white/5 p-3 rounded-2xl">
+                    <div class="text-blue-400"><i data-lucide="smartphone" class="w-5 h-5"></i></div>
+                    <div><p class="text-[10px] text-slate-500 uppercase">Screen</p><p id="spec-screen" class="text-xs font-bold font-mono">6.1" OLED</p></div>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <a id="btn-buy" href="#" target="_blank" class="flex items-center justify-between w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg shadow-blue-900/20">
+                    <span>🛒 Cek Harga Pasar</span>
+                    <i data-lucide="arrow-right-circle"></i>
+                </a>
+                <a id="btn-case" href="#" target="_blank" class="flex items-center justify-between w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-4 px-6 rounded-2xl transition-all">
+                    <span>🛡️ Cari Casing & Aksesoris</span>
+                    <i data-lucide="shield-check"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons(); // Inisialisasi icon
+
+        const API_KEY = AIzaSyC-O7hcZH8mSGe-ZpZ2fAdH0YYPzS-e4DA
+        const video = document.getElementById('camera-stream');
+        const resultsCard = document.getElementById('results-card');
+        const scanLine = document.getElementById('scan-line');
+
+        // Nyalakan Kamera
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", focusMode: "continuous" } 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Kamera gagal:", err);
+                alert("Mohon izinkan akses kamera untuk memulai.");
+            }
+        }
+
+        // Ambil Gambar & Analisa
+        async function analyzePhone() {
+            // Visual Feedback
+            scanLine.classList.remove('hidden');
+            const triggerBtn = document.getElementById('scan-trigger');
+            triggerBtn.disabled = true;
+            triggerBtn.classList.add('opacity-50', 'grayscale');
+
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const base64Img = canvas.toDataURL('image/jpeg').split(',')[1];
+
+            const prompt = `Identifikasi HP ini. Berikan jawaban dalam format JSON: {"model": "...", "chipset": "...", "ram": "...", "battery": "...", "screen": "...", "price": "...", "charging": "..."}`;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "image/jpeg", data: base64Img } }] }]
+                    })
+                });
+
+                const data = await response.json();
+                let cleanText = data.candidates[0].content.parts[0].text;
+                // Membersihkan JSON jika AI memberikan markdown
+                cleanText = cleanText.replace(/```json|```/g, "").trim();
+                const res = JSON.parse(cleanText);
+
+                updateUI(res);
+            } catch (err) {
+                console.error(err);
+                alert("Gagal mengenali objek. Pastikan pencahayaan cukup.");
+            } finally {
+                scanLine.classList.add('hidden');
+                triggerBtn.disabled = false;
+                triggerBtn.classList.remove('opacity-50', 'grayscale');
+            }
+        }
+
+        function updateUI(res) {
+            document.getElementById('phone-brand').innerText = res.model;
+            document.getElementById('price-tag').innerText = "Est. Rp " + res.price;
+            document.getElementById('spec-chip').innerText = res.chipset;
+            document.getElementById('spec-bat').innerText = res.battery;
+            document.getElementById('spec-ram').innerText = res.ram;
+            document.getElementById('spec-screen').innerText = res.screen;
+
+            // Update Link Afiliasi
+            document.getElementById('btn-buy').href = `https://www.tokopedia.com/search?q=${encodeURIComponent(res.model + " resmi")}`;
+            document.getElementById('btn-case').href = `https://www.tokopedia.com/search?q=${encodeURIComponent("Case " + res.model)}`;
+
+            resultsCard.classList.remove('hidden');
+            lucide.createIcons(); // Refresh icons in new element
+        }
+
+        function closeResult() {
+            resultsCard.classList.add('hidden');
+        }
+
+        initCamera();
+    </script>
+</body>
+</html>
